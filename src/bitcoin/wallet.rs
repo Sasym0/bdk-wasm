@@ -1,8 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
 use bdk_wallet::{SignOptions as BdkSignOptions, Wallet as BdkWallet};
-use wasm_bindgen::{prelude::wasm_bindgen, JsError};
+use wasm_bindgen::{prelude::wasm_bindgen, JsError, JsValue};
 use web_sys::js_sys::Date;
+use serde_wasm_bindgen;
 
 use crate::{
     bitcoin::WalletTx,
@@ -199,6 +200,22 @@ impl Wallet {
             .borrow_mut()
             .apply_unconfirmed_txs(unconfirmed_txs.into_iter().map(Into::into))
     }
+
+    /// Restituisce le policies per il keychain dato (external/internal)
+    /// come JsValue (Option<Policy> viene serializzata in null o oggetto).
+    #[wasm_bindgen]
+    pub fn policies(&self, keychain: KeychainKind) -> JsResult<JsValue> {
+        let w = self.0.borrow();
+
+        // Result<Option<Policy>, _>
+        let policies = w.policies(keychain.into())?;
+
+        let js_value = serde_wasm_bindgen::to_value(&policies)
+            .map_err(|e| JsError::new(&e.to_string()))?;
+
+        Ok(js_value)
+    }
+
 }
 
 #[wasm_bindgen]
