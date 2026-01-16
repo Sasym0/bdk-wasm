@@ -118,13 +118,30 @@ impl TxBuilder {
         }
 
         // Applica le policy path configurate da JS
+        // Raggruppa tutti i nodi per keychain prima di chiamare policy_path
+        let mut external_map = BTreeMap::<String, Vec<usize>>::new();
+        let mut internal_map = BTreeMap::<String, Vec<usize>>::new();
+
         for (kc, policy_id, path_u32) in self.policy_paths.into_iter() {
             let path_usize: Vec<usize> = path_u32.into_iter().map(|v| v as usize).collect();
 
-            let mut map = BTreeMap::<String, Vec<usize>>::new();
-            map.insert(policy_id.clone(), path_usize);
+            match kc {
+                KeychainKind::External => {
+                    external_map.insert(policy_id, path_usize);
+                }
+                KeychainKind::Internal => {
+                    internal_map.insert(policy_id, path_usize);
+                }
+                _ => {} // Ignora __Invalid e altri casi
+            }
+        }
 
-            builder.policy_path(map, kc.into());
+        // Chiama policy_path una sola volta per keychain con tutti i nodi
+        if !external_map.is_empty() {
+            builder.policy_path(external_map, bdk_wallet::KeychainKind::External);
+        }
+        if !internal_map.is_empty() {
+            builder.policy_path(internal_map, bdk_wallet::KeychainKind::Internal);
         }
 
         let psbt = builder.finish()?;
